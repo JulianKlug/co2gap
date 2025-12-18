@@ -15,3 +15,4 @@
 - Added `sql/extract_data_explained.md` to describe each temp-table/export step (cohort build, demographics, surgery ICDs, blood gases with specimen type, Swan-Ganz measures) so the pipeline is easy to follow.
 - Created `README.md` summarizing prerequisites, database build instructions, cohort documentation, extraction steps (`sql/extract_data.sql`), and troubleshooting tips so the entire workflow can be reproduced end-to-end.
 - Added `docs/data_dictionary.md` describing every column in the exported CSVs (demographics, surgery ICDs, blood gases with specimen_type, Swan-Ganz measures) and their original MIMIC source tables/derivations.
+- Added a dedicated "Surgery time derivation" section to `docs/cardiac_swan_cohort.md` describing the OR procedureevents → CSRU transfer → ICU intime fallback hierarchy used to anchor day 0.

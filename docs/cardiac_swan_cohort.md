@@ -105,14 +105,15 @@ pa_catheter_any AS (
 
 Note: CareVue lacks `procedureevents_mv`, so the PAP/Swan charted values are crucial for that era. If you want extra confidence, you can also require at least two pulmonary artery pressure chart events within a 6-hour window to avoid spurious documentation.
 
-## Putting it together
+## Surgery time derivation
+We infer the operative "day 0" timestamp per admission using the following hierarchy:
+1. **MetaVision OR procedureevents** – if any `procedureevents_mv` row records `itemid` 225467 (Chest Opened), 225469 (OR Received), or 225470 (OR Sent), we take the earliest `starttime` as `surgery_time`.
+2. **CSRU transfer** – absent OR events, we use the first `transfers` record whose `curr_careunit = 'CSRU'` and previous unit wasn’t CSRU. This captures the OR→CSRU handoff common after cardiac surgery.
+3. **ICU intime fallback** – if neither signal exists (e.g., sparse legacy documentation), we fall back to `icustays.intime` to keep the stay in scope while aligning the day-0 anchor near the ICU admission.
+
+`sql/cardiac_swan_cohort.sql` implements this logic in the `procedure_events`, `csru_transfer`, `cardiac_hadm`, and `icu_surgery` CTEs. The chosen `surgery_time_source` is propagated into every downstream extract so you know which data stream supplied the anchor.
+
 ## Restrict to day 0-30 post surgery
-Cardiac surgery patients typically leave the operating room and are admitted to the CSRU immediately. We infer "day 0" via two redundant signals:
-
-1. **Procedure timestamps (`procedureevents_mv`):** For MetaVision encounters we use the earliest `procedureevents_mv` record with `itemid` in `{225467 (Chest Opened), 225469 (OR Received), 225470 (OR Sent)}` as the operative timestamp. These events bookmark the OR workflow and provide sub-hour resolution.
-2. **CSRU transfers for coded cardiac surgeries:** For admissions that already carry qualifying cardiac procedure codes we pull the first `transfers` record whose `curr_careunit = 'CSRU'` and whose previous unit was not CSRU. This captures the OR → CSRU handoff that typically follows open-heart surgery, giving us a timestamp even when procedureevents logs are absent (e.g., CareVue era).
-
-If neither signal is present we fall back to the ICU admission time, which ensures legacy records stay in scope. All Swan-Ganz evidence is then filtered to the `[day 0, day 30]` window:
 
 ```sql
 procedure_events AS (
