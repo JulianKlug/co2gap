@@ -107,22 +107,36 @@ Note: CareVue lacks `procedureevents_mv`, so the PAP/Swan charted values are cru
 
 ## Putting it together
 ## Restrict to day 0-30 post surgery
-Cardiac surgery patients typically arrive in the CSRU directly from the OR, so we treat the first `CSURG` service timestamp as the operative date ("day 0"). When that timestamp is missing we fall back to the ICU admission time, which keeps legacy encounters in the cohort while still anchoring the timeline close to the surgery. All Swan-Ganz evidence is then filtered to the `[day 0, day 30]` window:
+Cardiac surgery patients typically leave the operating room and are admitted to the CSRU immediately. We infer "day 0" via two redundant signals:
+
+1. **Procedure timestamps (`procedureevents_mv`):** For MetaVision encounters we use the earliest `procedureevents_mv` record with `itemid` in `{225467 (Chest Opened), 225469 (OR Received), 225470 (OR Sent)}` as the operative timestamp. These events bookmark the OR workflow and provide sub-hour resolution.
+2. **CSRU transfers for coded cardiac surgeries:** For admissions that already carry qualifying cardiac procedure codes we pull the first `transfers` record whose `curr_careunit = 'CSRU'` and whose previous unit was not CSRU. This captures the OR → CSRU handoff that typically follows open-heart surgery, giving us a timestamp even when procedureevents logs are absent (e.g., CareVue era).
+
+If neither signal is present we fall back to the ICU admission time, which ensures legacy records stay in scope. All Swan-Ganz evidence is then filtered to the `[day 0, day 30]` window:
 
 ```sql
-surgery_services AS (
-  SELECT hadm_id, MIN(transfertime) AS surgery_time
-  FROM mimiciii.services
-  WHERE curr_service LIKE 'CSURG%'
+procedure_events AS (
+  SELECT hadm_id, MIN(starttime) AS proc_time
+  FROM mimiciii.procedureevents_mv
+  WHERE itemid IN (225467,225469,225470) -- Chest Opened, OR Received, OR Sent
   GROUP BY hadm_id
+),
+csru_transfer AS (
+  SELECT t.hadm_id, MIN(t.intime) AS csru_time
+  FROM mimiciii.transfers t
+  JOIN cardiac_surgery_hadm cs ON cs.hadm_id = t.hadm_id
+  WHERE t.curr_careunit = 'CSRU'
+    AND (t.prev_careunit IS DISTINCT FROM 'CSRU' OR t.prev_careunit IS NULL)
+  GROUP BY t.hadm_id
 ),
 icu_surgery AS (
   SELECT icu.*,
-         COALESCE(ss.surgery_time, icu.intime) AS surgery_time,
-         COALESCE(ss.surgery_time, icu.intime) + INTERVAL '30 day' AS surgery_time_end
+         COALESCE(pe.proc_time, ct.csru_time, icu.intime) AS surgery_time,
+         COALESCE(pe.proc_time, ct.csru_time, icu.intime) + INTERVAL '30 day' AS surgery_time_end
   FROM mimiciii.icustays icu
   JOIN cardiac_surgery_hadm cs ON cs.hadm_id = icu.hadm_id
-  LEFT JOIN surgery_services ss ON ss.hadm_id = icu.hadm_id
+  LEFT JOIN procedure_events pe ON pe.hadm_id = icu.hadm_id
+  LEFT JOIN csru_transfer ct ON ct.hadm_id = icu.hadm_id
 )
 ```
 
@@ -141,6 +155,34 @@ WITH cardiac_surgery_hadm AS (
      OR icd9_code BETWEEN '3630' AND '3639'
      OR icd9_code IN ('3751','3752','3753','3754','3755','3760','3763','3764','3765','3766','3768','3961','3962','3966')
   )
+),
+procedure_events AS (
+  SELECT hadm_id, MIN(starttime) AS proc_time
+  FROM mimiciii.procedureevents_mv
+  WHERE itemid IN (225467,225469,225470)
+  GROUP BY hadm_id
+),
+csru_transfer AS (
+  SELECT t.hadm_id, MIN(t.intime) AS csru_time
+  FROM mimiciii.transfers t
+  JOIN cardiac_surgery_hadm cs ON cs.hadm_id = t.hadm_id
+  WHERE t.curr_careunit = 'CSRU'
+    AND (t.prev_careunit IS DISTINCT FROM 'CSRU' OR t.prev_careunit IS NULL)
+  GROUP BY t.hadm_id
+),
+cardiac_hadm AS (
+  SELECT cs.hadm_id,
+         COALESCE(pe.proc_time, ct.csru_time) AS surgery_time
+  FROM cardiac_surgery_hadm cs
+  LEFT JOIN procedure_events pe ON pe.hadm_id = cs.hadm_id
+  LEFT JOIN csru_transfer ct ON ct.hadm_id = cs.hadm_id
+),
+icu_surgery AS (
+  SELECT icu.*,
+         COALESCE(ch.surgery_time, icu.intime) AS surgery_time,
+         COALESCE(ch.surgery_time, icu.intime) + INTERVAL '30 day' AS surgery_time_end
+  FROM mimiciii.icustays icu
+  JOIN cardiac_hadm ch ON ch.hadm_id = icu.hadm_id
 ),
 pa_catheter_proc AS (
   SELECT DISTINCT pe.icustay_id

@@ -10,17 +10,26 @@ WITH cardiac_surgery_hadm AS (
      OR icd9_code IN ('3751','3752','3753','3754','3755','3760','3763','3764','3765','3766','3768','3961','3962','3966')
   )
 ),
-surgery_services AS (
-  SELECT hadm_id, MIN(transfertime) AS surgery_time
-  FROM services
-  WHERE curr_service LIKE 'CSURG%'
+procedure_events AS (
+  SELECT hadm_id, MIN(starttime) AS proc_time
+  FROM procedureevents_mv
+  WHERE itemid IN (225467,225469,225470) -- Chest Opened, OR Received, OR Sent
   GROUP BY hadm_id
+),
+csru_transfer AS (
+  SELECT t.hadm_id, MIN(t.intime) AS csru_time
+  FROM transfers t
+  JOIN cardiac_surgery_hadm cs ON cs.hadm_id = t.hadm_id
+  WHERE t.curr_careunit = 'CSRU'
+    AND (t.prev_careunit IS DISTINCT FROM 'CSRU' OR t.prev_careunit IS NULL)
+  GROUP BY t.hadm_id
 ),
 cardiac_hadm AS (
   SELECT cs.hadm_id,
-         ss.surgery_time
+         COALESCE(pe.proc_time, ct.csru_time) AS surgery_time
   FROM cardiac_surgery_hadm cs
-  LEFT JOIN surgery_services ss ON ss.hadm_id = cs.hadm_id
+  LEFT JOIN procedure_events pe ON pe.hadm_id = cs.hadm_id
+  LEFT JOIN csru_transfer ct ON ct.hadm_id = cs.hadm_id
 ),
 icu_surgery AS (
   SELECT icu.subject_id,
