@@ -54,6 +54,16 @@ This repository contains the SQL and documentation required to reproduce a cohor
      * `cardiac_swan_swanmeasures.csv` (PAP, SvO₂, cardiac output/index, etc.)
      * `cardiac_swan_hemoglobin_temperature.csv` (hemoglobin labs + lab/charted temperatures)
 3. Refer to `sql/extract_data_explained.md` for a narrative description of each temp table and output.
+4. (Optional) Post-process the extracted CSVs to build matched measurement panels:
+   ```bash
+   conda run -n co2gap python scripts/build_matched_measurements.py \
+     --bloodgas-window-min 30 \
+     --hemoglobin-window-min 30 \
+     --temperature-window-min 30 \
+     --cardiac-index-window-min 30 \
+     --include-venous
+   ```
+   Each argument controls the ±minute tolerance used when pairing those signals to the cardiac-output anchor time; `--include-venous/--no-include-venous` toggles whether `VEN` specimens are treated as central venous samples (default: include). The script aligns hemoglobin labs, arterial/central blood gases, Swan-Ganz cardiac output/index values, and temperature measurements onto the cardiac-output timeline and writes `output/cardiac_swan_matched_measurements.csv`.
 
 ## 4. Post-processing
 - The CSVs are large (~300 MB combined). Compress or subset them before sharing.

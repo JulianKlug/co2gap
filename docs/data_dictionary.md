@@ -81,4 +81,17 @@ This document explains the source and derivation of every column contained in th
 | valuenum | Numeric measurement (g/dL, °F/°C). | `labevents.valuenum` / `chartevents.valuenum` |
 | valueuom | Units reported with the measurement. | `labevents.valueuom` / `chartevents.valueuom` |
 
+## cardiac_swan_matched_measurements.csv
+| Column | Description | Source |
+| --- | --- | --- |
+| anchor_type | `cardiac_output` for every row (anchor chosen from Swan-Ganz cardiac output measurements). | Derived from `cardiac_swan_swanmeasures.csv` |
+| subject_id / hadm_id / icustay_id | Cohort identifiers. | Propagated from anchors |
+| anchor_time | Timestamp of the cardiac output measurement used as the reference point. | `cardiac_swan_swanmeasures.csv:charttime` |
+| arterial_* / central_* | Blood-gas values (sat, pCO2, pH) along with units, timestamps, and source (`labevents`). | `cardiac_swan_blood_gases.csv` filtered by specimen type (`ART` for arterial, `CENTRAL` plus optional `VEN` when `--include-venous` is enabled) |
+| hemoglobin_* | Nearest hemoglobin lab within ±30 min (value/unit/label/source/time/delta). | `cardiac_swan_hemoglobin_temperature.csv` (measurement=`hemoglobin`) |
+| temperature_* | Nearest temperature (lab or chart) within ±30 min. | `cardiac_swan_hemoglobin_temperature.csv` (measurement=`temperature`) |
+| cardiac_output_* | Nearest Swan-Ganz cardiac output entry within ±30 min. | `cardiac_swan_swanmeasures.csv` filtered by CO itemids |
+| cardiac_index_* | Nearest cardiac index entry within ±30 min. | `cardiac_swan_swanmeasures.csv` filtered by CI itemids |
+| *_delta_minutes | Absolute time difference (minutes) between the anchor and the matched value. | Computed in `scripts/build_matched_measurements.py` |
+
 Each CSV row inherits the 30-day windowing constraint: only labs/measurements whose `charttime` falls between `surgery_time` and `surgery_time_end` are included.
