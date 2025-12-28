@@ -47,15 +47,16 @@ This repository contains the SQL and documentation required to reproduce a cohor
    ```
    This script:
    - Rebuilds the cohort temp table with day 0–30 constraints.
-   - Exports four CSVs to `output/`:
+   - Exports five CSVs to `output/`:
      * `cardiac_swan_demographics.csv`
      * `cardiac_swan_surgery_icd.csv`
      * `cardiac_swan_blood_gases.csv` (includes `specimen_type` from itemids 50800/50801)
      * `cardiac_swan_swanmeasures.csv` (PAP, SvO₂, cardiac output/index, etc.)
+     * `cardiac_swan_hemoglobin_temperature.csv` (hemoglobin labs + lab/charted temperatures)
 3. Refer to `sql/extract_data_explained.md` for a narrative description of each temp table and output.
 
 ## 4. Post-processing
-- The CSVs are large (~260 MB combined). Compress or subset them before sharing.
+- The CSVs are large (~300 MB combined). Compress or subset them before sharing.
 - If you need to adjust the cohort definition or add new measures, edit `sql/cardiac_swan_cohort.sql` and/or extend `sql/extract_data.sql`.
 - Update `progress.md` after each major run to keep the project log current.
 
@@ -63,5 +64,6 @@ This repository contains the SQL and documentation required to reproduce a cohor
 - Collation warnings: run `ALTER DATABASE mimic REFRESH COLLATION VERSION;` if libc updates cause version mismatches.
 - PostgreSQL auth: credentials live in `~/.pgpass`. If you add new roles, update that file accordingly.
 - SPECIMEN TYPE decoding: `cardiac_swan_blood_gases.csv` now includes the raw strings (e.g., `ART`, `VEN`, `MIX`, `CENTRAL VENOUS`). Use those to classify arterial vs. venous samples.
+- Temperatures: `cardiac_swan_hemoglobin_temperature.csv` captures both blood-gas temperature labs (`itemid` 50825) and charted temperatures (CareVue + MetaVision itemids) within the day 0–30 window.
 
 Following these steps will let you rebuild the entire pipeline from raw MIMIC-III CSVs to the final analytic extracts housed in `output/`.

@@ -2,7 +2,7 @@
 
 1. Cohort build (`temp_cardiac_swan_cohort`)
    - Reuses the cardiac surgery ICD-9 filters and Swan-Ganz item logic from `cardiac_swan_cohort.sql`.
-   - Computes `surgery_time` by preferring procedureevents (OR timestamps) and falling back to first CSRU transfer (if any) or ICU `intime` as a last resort, with the observation window set to day 0–30.
+   - Computes `surgery_time` by preferring procedureevents (OR timestamps) and falling back to the first CSRU transfer (if any) or ICU `intime`, with the observation window set to day 0–30.
    - Keeps metadata per ICU stay (subject/hadm/icustay IDs, ICU times, surgery-time source) for downstream joins.
 
 2. Demographics extract (`temp_cardiac_swan_demographics`)
@@ -26,4 +26,10 @@
    - Pulls all matching events per ICU stay within the day 0–30 window, keeping chart/store times, labels, numeric values, and units.
    - Export: `output/cardiac_swan_swanmeasures.csv`.
 
-Each section follows the same pattern: create/refresh a temp table, then `\copy` it to the corresponding CSV under `output/`. Running `psql -f sql/extract_data.sql` reproduces all four files.
+6. Hemoglobin & temperature (`temp_cardiac_swan_hgb_temp`)
+   - Gathers hemoglobin labs from `labevents` (`itemid` 50811 blood-gas Hgb, 51222 hematology Hgb) plus blood-gas temperature labs (`itemid` 50825) within the window.
+   - Adds charted temperature measurements from `chartevents` (CareVue 676/677/678/679, MetaVision 223761/223762/224027).
+   - Each row is tagged with `measurement` (`hemoglobin`/`temperature`) and `source_table` (`labevents` or `chartevents`).
+   - Export: `output/cardiac_swan_hemoglobin_temperature.csv`.
+
+Each section follows the same pattern: create/refresh a temp table, then `\copy` it to the corresponding CSV under `output/`. Running `psql -f sql/extract_data.sql` reproduces all five files.

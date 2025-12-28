@@ -199,3 +199,73 @@ JOIN chartevents ce ON ce.icustay_id = c.icustay_id
 JOIN swan_items si ON si.itemid = ce.itemid
 WHERE ce.charttime BETWEEN c.surgery_time AND c.surgery_time_end;
 \copy temp_cardiac_swan_measures TO 'output/cardiac_swan_swanmeasures.csv' CSV HEADER
+
+-- Hemoglobin (lab) and temperature (lab + chart) measurements.
+DROP TABLE IF EXISTS temp_cardiac_swan_hgb_temp;
+CREATE TEMP TABLE temp_cardiac_swan_hgb_temp AS
+WITH hgb_lab_items AS (
+  SELECT itemid, label
+  FROM d_labitems
+  WHERE itemid IN (50811, 51222) -- Hgb from blood gas + hematology
+),
+temp_lab_items AS (
+  SELECT itemid, label
+  FROM d_labitems
+  WHERE itemid IN (50825) -- Blood gas temperature
+),
+temp_chart_items AS (
+  SELECT itemid, label
+  FROM d_items
+  WHERE itemid IN (676,677,678,679,223761,223762,224027)
+)
+SELECT c.subject_id,
+       c.hadm_id,
+       c.icustay_id,
+       c.surgery_time,
+       l.charttime,
+       'hemoglobin' AS measurement,
+       'labevents' AS source_table,
+       l.itemid,
+       hi.label,
+       l.value,
+       l.valuenum,
+       l.valueuom
+FROM temp_cardiac_swan_cohort c
+JOIN labevents l ON l.hadm_id = c.hadm_id
+JOIN hgb_lab_items hi ON hi.itemid = l.itemid
+WHERE l.charttime BETWEEN c.surgery_time AND c.surgery_time_end
+UNION ALL
+SELECT c.subject_id,
+       c.hadm_id,
+       c.icustay_id,
+       c.surgery_time,
+       l.charttime,
+       'temperature' AS measurement,
+       'labevents' AS source_table,
+       l.itemid,
+       ti.label,
+       l.value,
+       l.valuenum,
+       l.valueuom
+FROM temp_cardiac_swan_cohort c
+JOIN labevents l ON l.hadm_id = c.hadm_id
+JOIN temp_lab_items ti ON ti.itemid = l.itemid
+WHERE l.charttime BETWEEN c.surgery_time AND c.surgery_time_end
+UNION ALL
+SELECT c.subject_id,
+       c.hadm_id,
+       c.icustay_id,
+       c.surgery_time,
+       ce.charttime,
+       'temperature' AS measurement,
+       'chartevents' AS source_table,
+       ce.itemid,
+       ci.label,
+       ce.value,
+       ce.valuenum,
+       ce.valueuom
+FROM temp_cardiac_swan_cohort c
+JOIN chartevents ce ON ce.icustay_id = c.icustay_id
+JOIN temp_chart_items ci ON ci.itemid = ce.itemid
+WHERE ce.charttime BETWEEN c.surgery_time AND c.surgery_time_end;
+\copy temp_cardiac_swan_hgb_temp TO 'output/cardiac_swan_hemoglobin_temperature.csv' CSV HEADER

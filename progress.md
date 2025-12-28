@@ -1,4 +1,4 @@
-### 2025-02-14
+### 2025-12
 - Confirmed MIMIC-III gz files live at `/mnt/hdd1/datasets/mimiciii_1.4` (read-only) and that the `co2gap` conda env is active for all work.
 - Wrote `docs/cardiac_swan_cohort.md` detailing the Postgres build steps plus the ICD-9 + PA-catheter logic needed for the cohort.
 - Enumerated the exact ICD-9 ranges/item IDs for cardiac surgery admissions and Swan-Ganz use; captured the executable SQL in `sql/cardiac_swan_cohort.sql`.
@@ -16,3 +16,5 @@
 - Created `README.md` summarizing prerequisites, database build instructions, cohort documentation, extraction steps (`sql/extract_data.sql`), and troubleshooting tips so the entire workflow can be reproduced end-to-end.
 - Added `docs/data_dictionary.md` describing every column in the exported CSVs (demographics, surgery ICDs, blood gases with specimen_type, Swan-Ganz measures) and their original MIMIC source tables/derivations.
 - Added a dedicated "Surgery time derivation" section to `docs/cardiac_swan_cohort.md` describing the OR procedureevents → CSRU transfer → ICU intime fallback hierarchy used to anchor day 0.
+- Extended `sql/extract_data.sql`/`sql/extract_data_explained.md`/`README.md`/`docs/data_dictionary.md` to capture hemoglobin (blood-gas + hematology labs) and temperature (blood-gas labs + charted temperatures) in a new CSV `output/cardiac_swan_hemoglobin_temperature.csv`.
+- Reran `sql/extract_data.sql` (with a longer timeout) to regenerate all five CSVs, including the new hemoglobin+temperature extract for 746,099 measurement rows.

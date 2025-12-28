@@ -14,6 +14,8 @@ Steps:
 - extract surgery information 
 - extract all blood gas values (along with date time and specimen)
 - extract all swan-ganz catheter values (especially cardiac output, along with date time)
+- extract all temperature values
+- extract all hemoglobin values 
 
 path to mimic data: /mnt/hdd1/datasets/mimiciii_1.4
 ! the data should not be modified !

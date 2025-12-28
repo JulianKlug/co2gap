@@ -67,4 +67,18 @@ This document explains the source and derivation of every column contained in th
 | valuenum | Numeric measurement (e.g., PAP in mmHg, CO in L/min). | `chartevents.valuenum` |
 | valueuom | Units (mmHg, L/min, L/min/m2, etc.). | `chartevents.valueuom` |
 
+## cardiac_swan_hemoglobin_temperature.csv
+| Column | Description | Source |
+| --- | --- | --- |
+| subject_id / hadm_id / icustay_id | Cohort identifiers. | Cohort temp table |
+| surgery_time | Day-0 anchor. | Cohort CTE |
+| charttime | Timestamp of the measurement. | `labevents.charttime` or `chartevents.charttime` |
+| measurement | Either `hemoglobin` or `temperature`. | Derived label |
+| source_table | Indicates whether the row came from `labevents` or `chartevents`. | Derived label |
+| itemid | Underlying MIMIC item identifier. | `labevents.itemid` or `chartevents.itemid` |
+| label | Human-readable description from `d_labitems` or `d_items`. | `d_labitems.label` / `d_items.label` |
+| value | String value (if textual). | `labevents.value` / `chartevents.value` |
+| valuenum | Numeric measurement (g/dL, °F/°C). | `labevents.valuenum` / `chartevents.valuenum` |
+| valueuom | Units reported with the measurement. | `labevents.valueuom` / `chartevents.valueuom` |
+
 Each CSV row inherits the 30-day windowing constraint: only labs/measurements whose `charttime` falls between `surgery_time` and `surgery_time_end` are included.
